@@ -1,6 +1,7 @@
 # Continuous Verification Visualizer (CVV)
 
 [![Apache 2.0 License](https://img.shields.io/badge/license-Apache--2-brightgreen.svg)](https://www.apache.org/licenses/LICENSE-2.0)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.17371298.svg)](https://doi.org/10.5281/zenodo.17371298)
 
 **Continuous Verification Visualizer (CVV)** is a web-based interface for visualizing software verification results, with built-in support for regression verification workflows.
 
