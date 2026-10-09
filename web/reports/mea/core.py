@@ -79,10 +79,12 @@ DEFAULT_SIMILARITY_THRESHOLD = 100  # in % (all threads are equal)
 DEFAULT_PROPERTY_CHECKS_TEXT = "property check description"
 
 
-def convert_error_trace(error_trace: dict, conversion_function: str, args: dict = dict) -> list:
+def convert_error_trace(error_trace: dict, conversion_function: str, args: dict = None) -> list:
     """
     Convert json error trace into internal representation (list of selected elements).
     """
+    if args is None:
+        args = {}
     functions = {
         CONVERSION_FUNCTION_MODEL_FUNCTIONS: __convert_model_functions,
         CONVERSION_FUNCTION_CALL_TREE: __convert_call_tree_filter,
@@ -113,7 +115,7 @@ def is_equivalent(comparison_results: float, similarity_threshold: int) -> bool:
     Returns true, if compared error traces are considered to be equivalent in terms of
     specified threshold.
     """
-    return comparison_results and (comparison_results * 100 >= similarity_threshold)
+    return bool(comparison_results and (comparison_results * 100 >= similarity_threshold))
 
 
 def compare_error_traces(edited_error_trace: list, compared_error_trace: list,
@@ -142,6 +144,12 @@ def compare_error_traces(edited_error_trace: list, compared_error_trace: list,
     return __get_similarity_coefficient(et1_threaded, et2_threaded, equal_threads)
 
 
+def __process_function_name(function_name: str) -> str:
+    # Remove id for generated names (e.g. "foo_12" -> "foo"); the same normalized names
+    # must be used both when converting an error trace and when detecting model functions.
+    return re.sub(r"_(\d+)$", "", function_name)
+
+
 # noinspection PyUnusedLocal
 def __convert_call_tree_filter(error_trace: dict, args: dict = None) -> list:
     # pylint: disable=unused-argument
@@ -151,9 +159,7 @@ def __convert_call_tree_filter(error_trace: dict, args: dict = None) -> list:
     double_funcs = {}
 
     def process_names(function_name: str) -> str:
-        # Remove id for generated names
-        function_name = re.sub(r"_(\d+)$", "", function_name)
-        return function_name
+        return __process_function_name(function_name)
 
     for edge in error_trace['edges']:
         if 'entry_point' in edge or 'ignore MEA' in edge:
@@ -187,14 +193,16 @@ def __convert_call_tree_filter(error_trace: dict, args: dict = None) -> list:
             double_return = edge['return']
             while True:
                 if double_return in double_funcs.keys():
-                    converted_error_trace.append({
-                        CET_OP: CET_OP_RETURN,
-                        CET_THREAD: edge['thread'],
-                        CET_LINE: edge['start line'],
-                        CET_SOURCE: edge['source'],
-                        CET_DISPLAY_NAME: error_trace['funcs'][double_funcs[double_return]],
-                        CET_ID: counter
-                    })
+                    double_name = process_names(error_trace['funcs'][double_funcs[double_return]])
+                    if double_name:
+                        converted_error_trace.append({
+                            CET_OP: CET_OP_RETURN,
+                            CET_THREAD: edge['thread'],
+                            CET_LINE: edge['start line'],
+                            CET_SOURCE: edge['source'],
+                            CET_DISPLAY_NAME: double_name,
+                            CET_ID: counter
+                        })
                     tmp = double_return
                     double_return = double_funcs[double_return]
                     del double_funcs[tmp]
@@ -250,21 +258,19 @@ def __convert_model_functions(error_trace: dict, args: dict = None) -> list:
 
 def __filter_functions(converted_error_trace: list, filtered_functions: set) -> list:
     result = []
-    filtered_stack = []
-    cur_thread = None
+    # Active filtered calls are tracked separately for each thread: threads may interleave,
+    # so a single shared stack would incorrectly leak or drop elements on thread switches.
+    filtered_stacks = {}
     for item in converted_error_trace:
         op = item[CET_OP]
         thread = item[CET_THREAD]
         name = item[CET_DISPLAY_NAME]
-        if cur_thread and not cur_thread == thread:
-            filtered_stack.clear()
+        filtered_stack = filtered_stacks.setdefault(thread, [])
         if name in filtered_functions:
             if op == CET_OP_CALL:
                 filtered_stack.append(name)
-                cur_thread = thread
-            elif op == CET_OP_RETURN:
-                if filtered_stack:
-                    filtered_stack.pop()
+            elif op == CET_OP_RETURN and filtered_stack:
+                filtered_stack.pop()
         elif not filtered_stack:
             result.append(item)
     return result
@@ -382,7 +388,7 @@ def __get_model_functions(error_trace: dict, args: dict) -> set:
             patterns.add(func)
     for edge in error_trace['edges']:
         if 'enter' in edge:
-            func = error_trace['funcs'][edge['enter']]
+            func = __process_function_name(error_trace['funcs'][edge['enter']])
             if patterns:
                 for pattern_func in patterns:
                     if re.match(pattern_func, func):
