@@ -3,3 +3,7 @@ __pycache__/
 .idea/workspace.xml
 */.idea/workspace.xml
 deploys/current.*
+.pytest_cache/
+.venv/
+pylibs/
+web/test_db.sqlite3
