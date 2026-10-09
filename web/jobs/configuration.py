@@ -393,7 +393,7 @@ class GetConfiguration:
                     loggers[l_h['name']] = {'formatter': formatters[l_h['formatter']], 'level': l_h['level']}
 
         return [
-            [filedata['priority'], filedata['max solving tasks per sub-job'], filedata['weight']],
+            [filedata['priority'], '0', filedata['max solving tasks per sub-job'], filedata['weight']],
             list(filedata['parallelism'][x] for x in list(y[1] for y in Parallelism.parallelism_names)),
             [
                 filedata['resource limits']['memory size'] / 10 ** 9,

@@ -246,71 +246,69 @@ def error_trace_pretty_print(converted_error_trace: list) -> str:
     """
     Print converted error trace (list of elements) for the user.
     """
-    result = ""
-    level = 0
-    cur_thread = -1
-    stack = list()
     if isinstance(converted_error_trace, str):
         converted_error_trace = json.loads(converted_error_trace)
 
-    # Thread '0' is a normal thread.
+    # Group elements by thread preserving the order in which threads appear. Error traces
+    # may interleave several threads; printing each thread contiguously keeps its call tree
+    # consistent, so the result can be parsed back without losing structure (see the bug
+    # with overlapping threads: previously a single global stack/level was used).
+    threads_order = []
+    threads_elements = {}
     for elem in converted_error_trace:
-        elem['thread'] = str(elem['thread'])
-
-    for elem in converted_error_trace:
-        op = elem[CET_OP]
         thread = elem[CET_THREAD]
-        if cur_thread == -1:
-            cur_thread = str(thread)
-        elif not cur_thread == thread:
-            cur_thread = str(thread)
-            result += "{}\t{}{}{}\n".format("    0", CODE_LINE_SEPARATOR, FUNCTION_CALL_SEPARATOR * level, CET_END)
-            level = 0
-        name = elem[CET_DISPLAY_NAME]
-        source = elem[CET_SOURCE]
-        line = elem[CET_LINE]
-        str_line_len = len(str(line))
-        if str_line_len == 2:
-            line = "   {}".format(line)
-        elif str_line_len == 1:
-            line = "    {}".format(line)
-        elif str_line_len == 3:
-            line = "  {}".format(line)
-        elif str_line_len == 4:
-            line = " {}".format(line)
+        if thread not in threads_elements:
+            threads_elements[thread] = []
+            threads_order.append(thread)
+        threads_elements[thread].append(elem)
 
-        if op == CET_OP_RETURN:
-            last_call = stack.pop()
-            if name == last_call:
-                level -= 1
-            else:
-                if DEBUG_ERROR_TRACE_COMPARISON:
-                    print("Warning: there was no call for function {}. Last called function is {}. "
-                          "Current id is {}".format(name, last_call, elem[CET_ID]))
-                stack.append(last_call)
-                continue
-        # Pretty print.
-        if op == CET_OP_CALL:
-            result += "{}\t{}{}{}\n".format(line, CODE_LINE_SEPARATOR, FUNCTION_CALL_SEPARATOR * level, name)
-        elif op in [CET_OP_ASSIGN, CET_OP_ASSUME, CET_OP_NOTE, CET_OP_WARN]:
-            if level > 0:
-                # with function calls
-                spaces = " " * level
-            else:
-                spaces = " " * int(cur_thread)
-            if op == CET_OP_ASSUME:
-                if name:
-                    result += "{}\t{}{}{}({})\n".format(line, CODE_LINE_SEPARATOR, spaces, op, source)
+    result = ""
+    for thread in threads_order:
+        level = 0
+        stack = list()
+        for elem in threads_elements[thread]:
+            op = elem[CET_OP]
+            name = elem[CET_DISPLAY_NAME]
+            source = elem[CET_SOURCE]
+            line = str(elem[CET_LINE]).rjust(5)
+
+            if op == CET_OP_RETURN:
+                if not stack:
+                    # There is no matching call (malformed or already closed trace) - skip it.
+                    continue
+                last_call = stack.pop()
+                if name == last_call:
+                    level -= 1
                 else:
-                    result += "{}\t{}{}{}(!({}))\n".format(line, CODE_LINE_SEPARATOR, spaces, op, source)
-            elif op == CET_OP_ASSIGN:
-                result += "{}\t{}{}{}: '{}'\n".format(line, CODE_LINE_SEPARATOR, spaces, op, source)
-            else:
-                result += "{}\t{}{}{}: '{}'\n".format(line, CODE_LINE_SEPARATOR, spaces, op, name)
-        if op == CET_OP_CALL:
-            level += 1
-            stack.append(name)
-    result += "{}\t{}{}{}\n".format("    0", CODE_LINE_SEPARATOR, FUNCTION_CALL_SEPARATOR * level, CET_END)
+                    if DEBUG_ERROR_TRACE_COMPARISON:
+                        print("Warning: there was no call for function {}. Last called function is {}. "
+                              "Current id is {}".format(name, last_call, elem[CET_ID]))
+                    stack.append(last_call)
+                    continue
+            # Pretty print.
+            if op == CET_OP_CALL:
+                result += "{}\t{}{}{}\n".format(line, CODE_LINE_SEPARATOR,
+                                                FUNCTION_CALL_SEPARATOR * level, name)
+            elif op in [CET_OP_ASSIGN, CET_OP_ASSUME, CET_OP_NOTE, CET_OP_WARN]:
+                if level > 0:
+                    # with function calls
+                    spaces = " " * level
+                else:
+                    spaces = " " * int(thread)
+                if op == CET_OP_ASSUME:
+                    if name:
+                        result += "{}\t{}{}{}({})\n".format(line, CODE_LINE_SEPARATOR, spaces, op, source)
+                    else:
+                        result += "{}\t{}{}{}(!({}))\n".format(line, CODE_LINE_SEPARATOR, spaces, op, source)
+                elif op == CET_OP_ASSIGN:
+                    result += "{}\t{}{}{}: '{}'\n".format(line, CODE_LINE_SEPARATOR, spaces, op, source)
+                else:
+                    result += "{}\t{}{}{}: '{}'\n".format(line, CODE_LINE_SEPARATOR, spaces, op, name)
+            if op == CET_OP_CALL:
+                level += 1
+                stack.append(name)
+        result += "{}\t{}{}{}\n".format("    0", CODE_LINE_SEPARATOR,
+                                        FUNCTION_CALL_SEPARATOR * level, CET_END)
     return result
 
 
