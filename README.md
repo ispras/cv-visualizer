@@ -50,7 +50,9 @@ To prepare and execute verification tasks, you can use one of the following fram
 
 ## Requirements
 
-- **Operating system:** Ubuntu 20.04 or later  
+- **Operating system:** Ubuntu 22.04 / 24.04 (Python 3.10 - 3.12)
+- **Python:** Django 5.2 LTS (see `requirements.txt`)
+- **Database:** PostgreSQL 12 - 18
 - **Dependencies:** Installed automatically via the provided Dockerfile
 
 If you prefer manual installation, make sure the following packages are available:
@@ -65,33 +67,27 @@ sudo apt install -y \
     python3-pip \
     python3-setuptools \
     python3-wheel \
+    python3-venv \
     gettext \
     postgresql \
     libpq-dev \
     graphviz
-````
+```
 
 Then install Python dependencies:
 
 ```bash
-pip3 install --upgrade pip
-pip3 install "setuptools<66.0.0"
-pip3 install \
-    requests \
-    ujson \
-    django==4.2 \
-    pluggy \
-    py \
-    attrs \
-    six \
-    more-itertools \
-    ply \
-    pytest \
-    atomicwrites \
-    pycparser \
-    psycopg2-binary \
-    sympy \
-    pytz
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r requirements.txt
+```
+
+To build the Docker image against a specific PostgreSQL major version
+(default is 18), pass `PG_VERSION`:
+
+```bash
+docker build --build-arg PG_VERSION=18 -t cv:pg18 .
+docker build --build-arg PG_VERSION=12 -t cv:pg12 .
 ```
 
 ---
@@ -131,6 +127,20 @@ pip3 install \
 
    ```bash
    deploys/deployment.sh <database_name>
+   ```
+
+   The script configures a local PostgreSQL cluster by default. Select a
+   specific installed major version (useful when both 12 and 18 are present):
+
+   ```bash
+   PG_VERSION=18 deploys/deployment.sh <database_name>
+   ```
+
+   To deploy against an external PostgreSQL server instead of a local cluster:
+
+   ```bash
+   DB_HOST=db.example.org DB_PORT=5432 DB_USER=postgres DB_PASSWORD=secret \
+       deploys/deployment.sh <database_name>
    ```
 
 2. Start the CV web server:

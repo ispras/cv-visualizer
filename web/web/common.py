@@ -78,7 +78,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'web.wsgi.application'
 
-# In db.json ENGINE should be either "django.db.backends.postgresql_psycopg2" or "django.db.backends.mysql"
+# In db.json ENGINE should be either "django.db.backends.postgresql" or "django.db.backends.mysql"
 DATABASES = {
     'default': json.load(open(os.path.join(BASE_DIR, 'web', 'db.json'), encoding='utf8')),
 }
@@ -99,8 +99,6 @@ DEFAULT_LANGUAGE = 'en-us'
 TIME_ZONE = 'UTC'
 
 USE_I18N = True
-
-USE_L10N = True
 
 USE_TZ = True
 

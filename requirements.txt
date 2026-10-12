@@ -1,0 +1,10 @@
+# CVV runtime dependencies.
+#
+# Django 5.2 is the current LTS release and supports Python 3.10 - 3.13,
+# which covers the Ubuntu 22.04 / 24.04 system interpreters.
+Django>=5.2,<5.3
+psycopg2-binary>=2.9.9,<3
+requests>=2.31,<3
+sympy>=1.12,<2
+pytz>=2024.1
+pycparser>=2.21,<3

@@ -90,7 +90,9 @@ class JobHistory(models.Model):
 
     class Meta:
         db_table = 'jobhistory'
-        index_together = ['job', 'version']
+        indexes = [
+            models.Index(fields=['job', 'version']),
+        ]
 
 
 class FileSystem(models.Model):

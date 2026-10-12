@@ -1,5 +1,8 @@
 __pycache__/
+*.pyc
 *.egg-info/
 .idea/workspace.xml
 */.idea/workspace.xml
 deploys/current.*
+web/web/db.json
+web/web/settings.py
