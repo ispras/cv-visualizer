@@ -1,0 +1,11 @@
+.git
+.idea
+.github
+deploys/current.*
+docs
+media
+__pycache__
+*.pyc
+*.egg-info
+web/web/db.json
+web/web/settings.py

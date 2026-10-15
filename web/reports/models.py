@@ -80,7 +80,9 @@ class Attr(models.Model):
 
     class Meta:
         db_table = 'attr'
-        index_together = ["name", "value"]
+        indexes = [
+            models.Index(fields=['name', 'value']),
+        ]
 
 
 class Report(models.Model):

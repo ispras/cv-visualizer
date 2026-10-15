@@ -315,7 +315,9 @@ class MarkUnknown(Mark):
 
     class Meta:
         db_table = 'mark_unknown'
-        index_together = ['component', 'problem_pattern']
+        indexes = [
+            models.Index(fields=['component', 'problem_pattern']),
+        ]
 
 
 class MarkUnknownHistory(MarkHistory):

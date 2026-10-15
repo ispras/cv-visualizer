@@ -78,10 +78,20 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'web.wsgi.application'
 
-# In db.json ENGINE should be either "django.db.backends.postgresql_psycopg2" or "django.db.backends.mysql"
+# In db.json ENGINE should be either "django.db.backends.postgresql" or "django.db.backends.mysql"
 DATABASES = {
     'default': json.load(open(os.path.join(BASE_DIR, 'web', 'db.json'), encoding='utf8')),
 }
+
+# Django 5.2 only supports PostgreSQL 14 and newer, but CVV still has to run on
+# PostgreSQL 12. The version floor is a policy decision rather than a hard
+# requirement (all version-specific features are gated on the actual server
+# version), so lower it for the PostgreSQL backend to keep the whole supported
+# range working.
+if 'postgresql' in DATABASES['default'].get('ENGINE', ''):
+    from django.db.backends.postgresql.features import DatabaseFeatures as _PostgreSQLFeatures
+
+    _PostgreSQLFeatures.minimum_database_version = (12,)
 
 DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
 
@@ -99,8 +109,6 @@ DEFAULT_LANGUAGE = 'en-us'
 TIME_ZONE = 'UTC'
 
 USE_I18N = True
-
-USE_L10N = True
 
 USE_TZ = True
 
