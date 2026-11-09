@@ -409,6 +409,48 @@ def __get_model_functions(error_trace: dict, args: dict) -> set:
     return model_functions
 
 
+def __is_wrapped_in_parentheses(text: str) -> bool:
+    if len(text) < 2 or not text.startswith('(') or not text.endswith(')'):
+        return False
+    depth = 0
+    for index, char in enumerate(text):
+        if char == '(':
+            depth += 1
+        elif char == ')':
+            depth -= 1
+            if depth == 0:
+                return index == len(text) - 1
+    return False
+
+
+def __get_assumption_expression(elem: dict) -> str:
+    """
+    Return the bare condition expression of an ASSUME element.
+
+    ``error_trace_pretty_print`` marks a condition that is not covered with a leading
+    '!' and wraps the expression in parentheses (``ASSUME(!(x > 0))``).  That marker is
+    only a presentation artifact (the covered flag itself is stored in CET_DISPLAY_NAME),
+    so it must not affect comparison.  Otherwise the very same trace is compared
+    differently depending on whether it has been passed through
+    ``error_trace_pretty_print``/``error_trace_pretty_parse`` -- the comparison filter
+    (CONVERSION_FUNCTION_CONDITIONS) then sees a "missing" or an "excessive" '!'.
+    """
+    expression = elem[CET_SOURCE]
+    if not isinstance(expression, str):
+        expression = str(expression)
+    expression = expression.strip()
+    changed = True
+    while changed:
+        changed = False
+        if __is_wrapped_in_parentheses(expression):
+            expression = expression[1:-1].strip()
+            changed = True
+        elif expression.startswith('!'):
+            expression = expression[1:].strip()
+            changed = True
+    return expression
+
+
 def __prep_elem_for_cmp(elem: dict, error_trace: dict) -> None:
     op = elem[CET_OP]
     thread = elem[CET_THREAD]
@@ -420,7 +462,7 @@ def __prep_elem_for_cmp(elem: dict, error_trace: dict) -> None:
         thread_aux = f"{thread}_aux"
         if thread_aux not in error_trace:
             error_trace[thread_aux] = []
-        error_trace[thread_aux].append((op, elem[CET_DISPLAY_NAME], elem[CET_SOURCE]))
+        error_trace[thread_aux].append((op, __get_assumption_expression(elem)))
     elif op in [CET_OP_WARN, CET_OP_NOTE, CET_OP_ASSIGN]:
         thread_aux = f"{thread}_aux"
         if thread_aux not in error_trace:
